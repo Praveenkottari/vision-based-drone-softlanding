@@ -19,9 +19,10 @@ import time
 import sys
 import argparse
 import os
+from picamera2 import Picamera2
 
-__author__ = "Tiziano Fiorenzani"
-__date__ = "01/06/2018"
+__author__ = "Raghu Pilli"
+__date__ = "10/12/2023"
 
 
 def save_snaps(width=0, height=0, name="snapshot", folder=".", raspi=False):
@@ -29,11 +30,17 @@ def save_snaps(width=0, height=0, name="snapshot", folder=".", raspi=False):
     if raspi:
         os.system('sudo modprobe bcm2835-v4l2')
 
-    cap = cv2.VideoCapture(0)
-    if width > 0 and height > 0:
-        print("Setting the custom Width and Height")
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+    piCam = Picamera2()
+    piCam.preview_configuration.main.size = (640,480)
+    piCam.preview_configuration.main.format = "RGB888"
+    piCam.preview_configuration.align()
+    piCam.configure("preview")
+    piCam.start()
+    
+    #if width > 0 and height > 0:
+     #   print("Setting the custom Width and Height")
+      #  cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+       # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
     try:
         if not os.path.exists(folder):
             os.makedirs(folder)
@@ -47,12 +54,14 @@ def save_snaps(width=0, height=0, name="snapshot", folder=".", raspi=False):
         pass
 
     nSnap   = 0
-    w       = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-    h       = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    #w       = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+    #h       = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    w = 640
+    h = 480
 
     fileName    = "%s/%s_%d_%d_" %(folder, name, w, h)
     while True:
-        ret, frame = cap.read()
+        frame = piCam.capture_array()
 
         cv2.imshow('camera', frame)
 
@@ -64,7 +73,7 @@ def save_snaps(width=0, height=0, name="snapshot", folder=".", raspi=False):
             cv2.imwrite("%s%d.jpg"%(fileName, nSnap), frame)
             nSnap += 1
 
-    cap.release()
+    piCam.stop()
     cv2.destroyAllWindows()
 
 

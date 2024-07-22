@@ -38,10 +38,12 @@ import numpy as np
 import cv2
 import cv2.aruco as aruco
 import sys, time, math
+from picamera2 import Picamera2
+#import motor_rotate
 
 #--- Define Tag
 id_to_find  = 72
-marker_size  = 10 #- [cm]
+marker_size  = 180 #- [cm]
 
 
 #------------------------------------------------------------------------------
@@ -82,8 +84,8 @@ def rotationMatrixToEulerAngles(R):
 
 #--- Get the camera calibration path
 calib_path  = ""
-camera_matrix   = np.loadtxt(calib_path+'cameraMatrix_webcam.txt', delimiter=',')
-camera_distortion   = np.loadtxt(calib_path+'cameraDistortion_webcam.txt', delimiter=',')
+camera_matrix   = np.loadtxt(calib_path+'cameraMatrix_raspi.txt', delimiter=',')
+camera_distortion   = np.loadtxt(calib_path+'cameraDistortion_raspi.txt', delimiter=',')
 
 #--- 180 deg rotation matrix around the x axis
 R_flip  = np.zeros((3,3), dtype=np.float32)
@@ -97,10 +99,17 @@ parameters  = aruco.DetectorParameters_create()
 
 
 #--- Capture the videocamera (this may also be a video or a picture)
-cap = cv2.VideoCapture(0)
+#cap = cv2.VideoCapture(0)
 #-- Set the camera size as the one it was calibrated with
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+#cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+#cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+
+piCam = Picamera2()
+piCam.preview_configuration.main.size = (640,420)
+piCam.preview_configuration.main.format = "RGB888"
+piCam.preview_configuration.align()
+piCam.configure("preview")
+piCam.start()
 
 #-- Font for the text in the image
 font = cv2.FONT_HERSHEY_PLAIN
@@ -108,7 +117,8 @@ font = cv2.FONT_HERSHEY_PLAIN
 while True:
 
     #-- Read the camera frame
-    ret, frame = cap.read()
+    #ret, frame = cap.read()
+    frame = piCam.capture_array()
 
     #-- Convert in gray scale
     gray    = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) #-- remember, OpenCV stores color images in Blue, Green, Red
@@ -117,7 +127,7 @@ while True:
     corners, ids, rejected = aruco.detectMarkers(image=gray, dictionary=aruco_dict, parameters=parameters,
                               cameraMatrix=camera_matrix, distCoeff=camera_distortion)
     
-    if ids is not None and ids[0] == id_to_find:
+    if ids is not None:
         
         #-- ret = [rvec, tvec, ?]
         #-- array of rotation and position of each marker in camera frame
@@ -129,7 +139,7 @@ while True:
         rvec, tvec = ret[0][0,0,:], ret[1][0,0,:]
 
         #-- Draw the detected marker and put a reference frame over it
-        aruco.drawDetectedMarkers(frame, corners)
+        aruco.drawDetectedMarkers(frame, corners, ids)
         aruco.drawAxis(frame, camera_matrix, camera_distortion, rvec, tvec, 10)
 
         #-- Print the tag position in camera frame
@@ -160,8 +170,10 @@ while True:
         str_attitude = "CAMERA Attitude r=%4.0f  p=%4.0f  y=%4.0f"%(math.degrees(roll_camera),math.degrees(pitch_camera),
                             math.degrees(yaw_camera))
         cv2.putText(frame, str_attitude, (0, 250), font, 1, (0, 255, 0), 2, cv2.LINE_AA)
+        marker_id = ids[0][0]
 
-
+        #if marker_id in (1,2,3,4):
+           # motor_rotate.rotate_motor(marker_id)
 
     
 
@@ -172,7 +184,7 @@ while True:
     #--- use 'q' to quit
     key = cv2.waitKey(1) & 0xFF
     if key == ord('q'):
-        cap.release()
+        piCam.stop()
         cv2.destroyAllWindows()
         break
 

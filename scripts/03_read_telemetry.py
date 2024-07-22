@@ -9,16 +9,18 @@ from dronekit import connect, VehicleMode
 import time
 
 #--- Start the Software In The Loop (SITL)
-import dronekit_sitl
+#import dronekit_sitl
 #
-sitl = dronekit_sitl.start_default()   #(sitl.start)
-connection_string = sitl.connection_string()
+#sitl = dronekit_sitl.start_default()   #(sitl.start)
+
+#connection_string = sitl.connection_string()
+
+connection_string = "/dev/ttyUSB0"
 
 #--- Now that we have started the SITL and we have the connection string (basically the ip and udp port)...
 
 print(">>>> Connecting with the UAV <<<")
-vehicle = connect(connection_string, wait_ready=True)     #- wait_ready flag hold the program untill all the parameters are been read (=, not .)
-
+vehicle = connect(connection_string)     #- wait_ready flag hold the program untill all the parameters are been read (=, not .)
 #-- Read information from the autopilot:
 #- Version and attributes
 vehicle.wait_ready('autopilot_version')
@@ -84,13 +86,13 @@ print("Maximum Throttle: %d"%vehicle.parameters['THR_MIN'])
 #-- You can read and write the parameters
 vehicle.parameters['THR_MIN'] = 50
 time.sleep(1)
-print("Maximum Throttle: %d"%vehicle.parameters['THR_MIN'])
+print("Maximum Throttle: %d"%vehicle.parameters['THR_MAX'])
 
 
 
 #--- Now we close the simulation
 vehicle.close()
-sitl.stop()
+#sitl.stop()
 
 print("done")
 

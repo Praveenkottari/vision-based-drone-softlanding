@@ -21,6 +21,7 @@ sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 import time
 import math
 import argparse
+# from picamera2 import Picamera2
 
 
 from dronekit import connect, VehicleMode, LocationGlobalRelative, Command, LocationGlobal
@@ -28,7 +29,8 @@ from pymavlink import mavutil
 from opencv.lib_aruco_pose import *
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--connect', default = '')
+parser.add_argument('--connect', default = '/dev/ttyUSB0')
+parser.add_argument('--id', default = 72)
 args = parser.parse_args()
     
 #--------------------------------------------------
@@ -52,7 +54,7 @@ def get_location_metres(original_location, dNorth, dEast):
     dLat = dNorth/earth_radius
     dLon = dEast/(earth_radius*math.cos(math.pi*original_location.lat/180))
     
-    print "dlat, dlon", dLat, dLon
+    print("dlat, dlon", dLat, dLon)
 
     #New position in decimal degrees
     newlat = original_location.lat + (dLat * 180/math.pi)
@@ -87,9 +89,9 @@ def check_angle_descend(angle_x, angle_y, angle_desc):
 #--------------------------------------------------    
 #-- Connect to the vehicle
 print('Connecting...')
-vehicle = connect(args.connect)  
-
 #--------------------------------------------------
+vehicle = connect(args.connect)
+
 #-------------- PARAMETERS  
 #-------------------------------------------------- 
 rad_2_deg   = 180.0/math.pi
@@ -99,14 +101,20 @@ deg_2_rad   = 1.0/rad_2_deg
 #-------------- LANDING MARKER  
 #--------------------------------------------------    
 #--- Define Tag
-id_to_find      = 72
-marker_size     = 10 #- [cm]
-freq_send       = 1 #- Hz
+id_to_find      = int(args.id)
+marker_size     = 180 #- [cm]
+freq_send       = 10 #- Hz
 
-land_alt_cm         = 50.0
+land_alt_cm         = 150.0
 angle_descend       = 20*deg_2_rad
-land_speed_cms      = 30.0
+land_speed_cms      = 7.0
 
+# piCam = Picamera2()
+# piCam.preview_configuration.main.size = (640,420)
+# piCam.preview_configuration.main.format = "RGB888"
+# piCam.preview_configuration.align()
+# piCam.configure("preview")
+# piCam.start()
 
 
 #--- Get the camera calibration path
@@ -123,44 +131,48 @@ time_0 = time.time()
 
 while True:                
 
-    marker_found, x_cm, y_cm, z_cm = aruco_tracker.track(loop=False)
+    marker_found, x_cm, y_cm, z_cm = aruco_tracker.track(show_video=1)
     if marker_found:
+        # print("Marker ID: ", id_to_find, "is detected..")
         x_cm, y_cm          = camera_to_uav(x_cm, y_cm)
         uav_location        = vehicle.location.global_relative_frame
+       # print(uav_location)
         
         #-- If high altitude, use baro rather than visual
-        if uav_location.alt >= 5.0:
-            print 
+        if uav_location.alt >= 2.0:
+             
             z_cm = uav_location.alt*100.0
             
-        angle_x, angle_y    = marker_position_to_angle(x_cm, y_cm, z_cm)
+            angle_x, angle_y    = marker_position_to_angle(x_cm, y_cm, z_cm)
+            #print(angle_x, angle_y)
+        #break
 
         
         if time.time() >= time_0 + 1.0/freq_send:
-            time_0 = time.time()
-            # print ""
-            print " "
-            print "Altitude = %.0fcm"%z_cm
-            print "Marker found x = %5.0f cm  y = %5.0f cm -> angle_x = %5f  angle_y = %5f"%(x_cm, y_cm, angle_x*rad_2_deg, angle_y*rad_2_deg)
+             time_0 = time.time()
+             # print ""
+             print (" ")
+             print ("Altitude = %.0fcm"%z_cm)
+            # print ("Marker found x = %5.0f cm  y = %5.0f cm -> angle_x = %5f  angle_y = %5f"%(x_cm, y_cm, angle_x*rad_2_deg, angle_y*rad_2_deg))
             
-            north, east             = uav_to_ne(x_cm, y_cm, vehicle.attitude.yaw)
-            print "Marker N = %5.0f cm   E = %5.0f cm   Yaw = %.0f deg"%(north, east, vehicle.attitude.yaw*rad_2_deg)
+             north, east             = uav_to_ne(x_cm, y_cm, vehicle.attitude.yaw)
+             print ("Marker N = %5.0f cm   E = %5.0f cm   Yaw = %.0f deg"%(north, east, vehicle.attitude.yaw*rad_2_deg))
             
-            marker_lat, marker_lon  = get_location_metres(uav_location, north*0.01, east*0.01)  
-            #-- If angle is good, descend
-            if check_angle_descend(angle_x, angle_y, angle_descend):
-                print "Low error: descending"
-                location_marker         = LocationGlobalRelative(marker_lat, marker_lon, uav_location.alt-(land_speed_cms*0.01/freq_send))
-            else:
-                location_marker         = LocationGlobalRelative(marker_lat, marker_lon, uav_location.alt)
+             marker_lat, marker_lon  = get_location_metres(uav_location, north*0.01, east*0.01)  
+             #-- If angle is good, descend
+             if check_angle_descend(angle_x, angle_y, angle_descend):
+                 print ("Low error: descending")
+                 location_marker         = LocationGlobalRelative(marker_lat, marker_lon, uav_location.alt-(land_speed_cms*0.01/freq_send))
+             else:
+                 location_marker         = LocationGlobalRelative(marker_lat, marker_lon, uav_location.alt)
                 
-            vehicle.simple_goto(location_marker)
-            print "UAV Location    Lat = %.7f  Lon = %.7f"%(uav_location.lat, uav_location.lon)
-            print "Commanding to   Lat = %.7f  Lon = %.7f"%(location_marker.lat, location_marker.lon)
+             vehicle.simple_goto(location_marker)
+             print ("UAV Location    Lat = %.7f  Lon = %.7f"%(uav_location.lat, uav_location.lon))
+             print ("Commanding to   Lat = %.7f  Lon = %.7f"%(location_marker.lat, location_marker.lon))
             
-        #--- COmmand to land
+         #--- COmmand to land
         if z_cm <= land_alt_cm:
-            if vehicle.mode == "GUIDED":
-                print (" -->>COMMANDING TO LAND<<")
-                vehicle.mode = "LAND"
+             if vehicle.mode.name == "GUIDED":
+                 print (" -->>COMMANDING TO LAND<<")
+                 vehicle.mode = "LAND"
             

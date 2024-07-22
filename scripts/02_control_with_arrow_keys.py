@@ -8,12 +8,13 @@ from dronekit import connect, VehicleMode, LocationGlobalRelative, Command, Loca
 from pymavlink import mavutil
 
 #- Importing Tkinter: sudo apt-get install python-tk
-import Tkinter as tk
-
+import tk
 
 #-- Connect to the vehicle
+connection_string = "/dev/ttyUSB0"
 print('Connecting...')
-vehicle = connect('udp:127.0.0.1:14551')
+# vehicle = connect('udp:127.0.0.1:14551')
+vehicle = connect(connection_string)
 
 #-- Setup the commanded flying speed
 gnd_speed = 5 # [m/s]
@@ -21,15 +22,15 @@ gnd_speed = 5 # [m/s]
 #-- Define arm and takeoff
 def arm_and_takeoff(altitude):
 
-   while not vehicle.is_armable:
-      print("waiting to be armable")
-      time.sleep(1)
+#    while not vehicle.is_armable:
+#       print("waiting to be armable")
+#       time.sleep(1)
 
    print("Arming motors")
    vehicle.mode = VehicleMode("GUIDED")
    vehicle.armed = True
 
-   while not vehicle.armed: time.sleep(1)
+#    while not vehicle.armed: time.sleep(1)
 
    print("Taking Off")
    vehicle.simple_takeoff(altitude)

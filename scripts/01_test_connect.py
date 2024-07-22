@@ -7,18 +7,21 @@ parser = argparse.ArgumentParser(description='commands')
 parser.add_argument('--connect')
 args = parser.parse_args()
 
-connection_string = args.connect
+# connection_string = args.connect
+
+connection_string = "/dev/ttyUSB0"
 
 
 print("Connection to the vehicle on %s"%connection_string)
-vehicle = connect(connection_string, wait_ready=True)
+vehicle = connect(connection_string)
+print(vehicle)
 
 #-- Define the function for takeoff
 def arm_and_takeoff(tgt_altitude):
     print("Arming motors")
     
-    while not vehicle.is_armable:
-        time.sleep(1)
+   # while not vehicle.is_armable:
+   #     time.sleep(1)
         
     vehicle.mode = VehicleMode("GUIDED")
     vehicle.armed = True
@@ -43,16 +46,16 @@ def arm_and_takeoff(tgt_altitude):
 arm_and_takeoff(10)
 
 #-- set the default speed
-vehicle.airspeed = 7
+vehicle.airspeed = 10
 
 #-- Go to wp1
 print ("go to wp1")
-wp1 = LocationGlobalRelative(35.9872609, -95.8753037, 10)
+wp1 = LocationGlobalRelative(13.027287, 77.5634533, 10)
 
 vehicle.simple_goto(wp1)
 
 #--- Here you can do all your magic....
-time.sleep(30)
+time.sleep(10)
 
 #--- Coming back
 print("Coming back")
@@ -62,6 +65,3 @@ time.sleep(20)
 
 #-- Close connection
 vehicle.close()
-
-
-

@@ -40,6 +40,7 @@ import numpy as np
 import cv2
 import cv2.aruco as aruco
 import sys, time, math
+from picamera2 import Picamera2
 
 class ArucoSingleTracker():
     def __init__(self,
@@ -67,17 +68,16 @@ class ArucoSingleTracker():
         self._R_flip[0,0] = 1.0
         self._R_flip[1,1] =-1.0
         self._R_flip[2,2] =-1.0
-
         #--- Define the aruco dictionary
         self._aruco_dict  = aruco.getPredefinedDictionary(aruco.DICT_ARUCO_ORIGINAL)
         self._parameters  = aruco.DetectorParameters_create()
 
 
         #--- Capture the videocamera (this may also be a video or a picture)
-        self._cap = cv2.VideoCapture(0)
+        # self._cap = cv2.VideoCapture(0)
         #-- Set the camera size as the one it was calibrated with
-        self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, camera_size[0])
-        self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, camera_size[1])
+        # self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, camera_size[0])
+        # self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, camera_size[1])
 
         #-- Font for the text in the image
         self.font = cv2.FONT_HERSHEY_PLAIN
@@ -86,6 +86,15 @@ class ArucoSingleTracker():
         self._t_detect    = self._t_read
         self.fps_read    = 0.0
         self.fps_detect  = 0.0    
+
+        self._piCam = Picamera2()
+        self._piCam.preview_configuration.main.size = (640,420)
+        self._piCam.preview_configuration.main.format = "RGB888"
+        self._piCam.preview_configuration.align()
+        self._piCam.configure("preview")
+        self.result = cv2.VideoWriter("image"+str(time.time()) + ".avi", cv2.VideoWriter_fourcc(*'MJPG'), 10, (640,420))
+        self._piCam.start()
+
 
     def _rotationMatrixToEulerAngles(self,R):
     # Calculates rotation matrix to euler angles
@@ -139,7 +148,7 @@ class ArucoSingleTracker():
         while not self._kill:
             
             #-- Read the camera frame
-            ret, frame = self._cap.read()
+            frame = self._piCam.capture_array()
 
             self._update_fps_read()
             
@@ -183,52 +192,54 @@ class ArucoSingleTracker():
                 pos_camera = -R_tc*np.matrix(tvec).T
                 
                 # print "Camera X = %.1f  Y = %.1f  Z = %.1f  - fps = %.0f"%(pos_camera[0], pos_camera[1], pos_camera[2],fps_detect)
-                if verbose: print "Marker X = %.1f  Y = %.1f  Z = %.1f  - fps = %.0f"%(tvec[0], tvec[1], tvec[2],self.fps_detect)
+                if verbose: print("Marker X = %.1f  Y = %.1f  Z = %.1f  - fps = %.0f"%(tvec[0], tvec[1], tvec[2],self.fps_detect))
 
                 if show_video:
 
                     #-- Print the tag position in camera frame
                     str_position = "MARKER Position x=%4.0f  y=%4.0f  z=%4.0f"%(tvec[0], tvec[1], tvec[2])
-                    cv2.putText(frame, str_position, (0, 100), font, 1, (0, 255, 0), 2, cv2.LINE_AA)        
+                    cv2.putText(frame, str_position, (0, 100), self.font, 1, (0, 255, 0), 2, cv2.LINE_AA)        
                     
                     #-- Print the marker's attitude respect to camera frame
                     str_attitude = "MARKER Attitude r=%4.0f  p=%4.0f  y=%4.0f"%(math.degrees(roll_marker),math.degrees(pitch_marker),
                                         math.degrees(yaw_marker))
-                    cv2.putText(frame, str_attitude, (0, 150), font, 1, (0, 255, 0), 2, cv2.LINE_AA)
+                    cv2.putText(frame, str_attitude, (0, 150), self.font, 1, (0, 255, 0), 2, cv2.LINE_AA)
 
                     str_position = "CAMERA Position x=%4.0f  y=%4.0f  z=%4.0f"%(pos_camera[0], pos_camera[1], pos_camera[2])
-                    cv2.putText(frame, str_position, (0, 200), font, 1, (0, 255, 0), 2, cv2.LINE_AA)
+                    cv2.putText(frame, str_position, (0, 200), self.font, 1, (0, 255, 0), 2, cv2.LINE_AA)
 
                     #-- Get the attitude of the camera respect to the frame
-                    roll_camera, pitch_camera, yaw_camera = rotationMatrixToEulerAngles(R_flip*R_tc)
+                    roll_camera, pitch_camera, yaw_camera = self._rotationMatrixToEulerAngles(self._R_flip*R_tc)
                     str_attitude = "CAMERA Attitude r=%4.0f  p=%4.0f  y=%4.0f"%(math.degrees(roll_camera),math.degrees(pitch_camera),
                                         math.degrees(yaw_camera))
-                    cv2.putText(frame, str_attitude, (0, 250), font, 1, (0, 255, 0), 2, cv2.LINE_AA)
+                    cv2.putText(frame, str_attitude, (0, 250), self.font, 1, (0, 255, 0), 2, cv2.LINE_AA)
 
 
             else:
-                if verbose: print "Nothing detected - fps = %.0f"%self.fps_read
+                if verbose: print("Nothing detected - fps = %.0f"%self.fps_read)
             
 
             if show_video:
                 #--- Display the frame
+                self.result.write(frame)
                 cv2.imshow('frame', frame)
 
                 #--- use 'q' to quit
                 key = cv2.waitKey(1) & 0xFF
                 if key == ord('q'):
-                    self._cap.release()
+                    self._piCam.close()
                     cv2.destroyAllWindows()
                     break
             
-            if not loop: return(marker_found, x, y, z)
+            return(marker_found, x, y, z)
+            
             
 
 if __name__ == "__main__":
 
     #--- Define Tag
     id_to_find  = 72
-    marker_size  = 4 #- [cm]
+    marker_size  = 180 #- [cm]
 
     #--- Get the camera calibration path
     calib_path  = ""
