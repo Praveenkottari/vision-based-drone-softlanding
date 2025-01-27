@@ -75,7 +75,7 @@ Calibration methods rely on one or more images of a calibration pattern:
 - Studying how localization errors "propagate" to the estimates of the camera parameters is very important. 
 
 ## Camera Integration and Landing
-	The system continuously captures images using an onboard camera These images are processed in real-time to detect the presence of a predefined marker Once the target marker is identified in the camera's view algorithm analyses its orientation and position This analysis often involves calculating the marker's distance and angle relative to the camera to determine the vehicle's position relative to the landing zone The system uses the positional data of the marker to adjust the vehicle's alignment and position. If necessary, code will allow the vehicle manoeuvres to align itself directly above the marker, ensuring a safe landing trajectory.
+The system continuously captures images using an onboard camera These images are processed in real-time to detect the presence of a predefined marker Once the target marker is identified in the camera's view algorithm analyses its orientation and position This analysis often involves calculating the marker's distance and angle relative to the camera to determine the vehicle's position relative to the landing zone The system uses the positional data of the marker to adjust the vehicle's alignment and position. If necessary, code will allow the vehicle manoeuvres to align itself directly above the marker, ensuring a safe landing trajectory.
 ![image](https://github.com/user-attachments/assets/40a2fc12-6bd6-423e-9258-28b014842d95)
 
 
